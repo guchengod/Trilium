@@ -8,7 +8,7 @@
   "author": {
     "name": "Trilium Notes Team",
     "email": "contact@eliandoran.me",
-    "url": "https://github.com/TriliumNext/Notes"
+    "url": "https://triliumnotes.org"
   },
   "scripts": {
     "dev": "cross-env TRILIUM_PORT=37742 TRILIUM_DATA_DIR=data tsx ../../scripts/electron-start.mts src/main.ts",

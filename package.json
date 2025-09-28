@@ -70,16 +70,16 @@
   "author": {
     "name": "Trilium Notes Team",
     "email": "contact@eliandoran.me",
-    "url": "https://github.com/TriliumNext/Notes"
+    "url": "https://triliumnotes.org"
   },
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/TriliumNext/Notes.git"
+    "url": "git+https://github.com/TriliumNext/Trilium.git"
   },
   "bugs": {
-    "url": "https://github.com/TriliumNext/Notes/issues"
+    "url": "https://github.com/TriliumNext/Trilium/issues"
   },
-  "homepage": "https://github.com/TriliumNext/Notes#readme",
+  "homepage": "https://triliumnotes.org",
   "packageManager": "pnpm@10.17.1",
   "pnpm": {
     "patchedDependencies": {

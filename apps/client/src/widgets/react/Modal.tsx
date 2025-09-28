@@ -36,9 +36,9 @@ interface ModalProps {
     onSubmit?: () => void;
     /** Called when the modal is shown. */
     onShown?: () => void;
-    /** 
+    /**
      * Called when the modal is hidden, either via close button, backdrop click or submit.
-     * 
+     *
      * Here it's generally a good idea to set `show` to false to reflect the actual state of the modal.
      */
     onHidden: () => void;
@@ -71,23 +71,25 @@ export default function Modal({ children, className, size, title, header, footer
 
     useEffect(() => {
         const modalElement = modalRef.current;
-        if (!modalElement) {
-            return;
-        }
+        if (!modalElement) return;
+
         if (onShown) {
             modalElement.addEventListener("shown.bs.modal", onShown);
         }
-        modalElement.addEventListener("hidden.bs.modal", () => {
+
+        function onModalHidden() {
             onHidden();
             if (elementToFocus.current && "focus" in elementToFocus.current) {
                 (elementToFocus.current as HTMLElement).focus();
             }
-        });
+        }
+
+        modalElement.addEventListener("hidden.bs.modal", onModalHidden);
         return () => {
             if (onShown) {
                 modalElement.removeEventListener("shown.bs.modal", onShown);
             }
-            modalElement.removeEventListener("hidden.bs.modal", onHidden);
+            modalElement.removeEventListener("hidden.bs.modal", onModalHidden);
         };
     }, [ onShown, onHidden ]);
 

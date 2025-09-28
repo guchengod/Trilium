@@ -334,6 +334,7 @@ li.dropdown-item a.dropdown-item-button:focus-visible {
 #toast-container .toast .toast-header {
     background: transparent !important;
     border-bottom: none;
+    color: var(--toast-text-color) !important;
 }
 
 #toast-container .toast .toast-header strong > * {
@@ -353,12 +354,12 @@ li.dropdown-item a.dropdown-item-button:focus-visible {
     overflow: hidden;
     text-overflow: ellipsis;
     padding-top: 0;
-    color: var(--muted-text-color);
 }
 
 #toast-container .toast:not(.no-title) .bx {
     margin-right: 0.5em;
     font-size: 1.1em;
+    opacity: 0.85;
 }
 
 #toast-container .toast.no-title .bx {

@@ -19,7 +19,6 @@ concurrency:
   cancel-in-progress: true
 
 env:
-  GITHUB_UPLOAD_URL: https://uploads.github.com/repos/TriliumNext/Notes/releases/179589950/assets{?name,label}
   GITHUB_RELEASE_ID: 179589950
 
 permissions:

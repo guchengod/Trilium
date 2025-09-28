@@ -22,6 +22,7 @@ export default function AddLinkDialog() {
     const [ linkType, setLinkType ] = useState<LinkType>(hasSelection ? "hyper-link" : "reference-link");
     const [ suggestion, setSuggestion ] = useState<Suggestion | null>(null);
     const [ shown, setShown ] = useState(false);
+    const hasSubmittedRef = useRef(false);
 
     useTriliumEvent("showAddLinkDialog", ( { textTypeWidget, text }) => {
         setTextTypeWidget(textTypeWidget);
@@ -83,14 +84,11 @@ export default function AddLinkDialog() {
     }
 
     function onSubmit() {
-        if (suggestion?.notePath) {
-            // Handle note link
+        hasSubmittedRef.current = true;
+
+        if (suggestion) {
+            // Insertion logic in onHidden because it needs focus.
             setShown(false);
-            textTypeWidget?.addLink(suggestion.notePath, linkType === "reference-link" ? null : linkTitle);
-        } else if (suggestion?.externalLink) {
-            // Handle external link
-            setShown(false);
-            textTypeWidget?.addLink(suggestion.externalLink, linkTitle, true);
         } else {
             logError("No link to add.");
         }
@@ -109,6 +107,19 @@ export default function AddLinkDialog() {
             onSubmit={onSubmit}
             onShown={onShown}
             onHidden={() => {
+                // Insert the link.
+                if (hasSubmittedRef.current && suggestion && textTypeWidget) {
+                    hasSubmittedRef.current = false;
+
+                    if (suggestion.notePath) {
+                        // Handle note link
+                        textTypeWidget.addLink(suggestion.notePath, linkType === "reference-link" ? null : linkTitle);
+                    } else if (suggestion.externalLink) {
+                        // Handle external link
+                        textTypeWidget.addLink(suggestion.externalLink, linkTitle, true);
+                    }
+                }
+
                 setSuggestion(null);
                 setShown(false);
             }}

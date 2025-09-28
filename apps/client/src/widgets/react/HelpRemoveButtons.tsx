@@ -14,16 +14,19 @@ export default function HelpRemoveButtons({ help, removeText, onRemove }: HelpRe
             {help && <>
                 <Dropdown
                     className="help-dropdown"
-                    buttonClassName="bx bx-help-circle icon-action"                    
+                    buttonClassName="bx bx-help-circle icon-action"
                     hideToggleArrow
                 >{help}</Dropdown>
                 {" "}
-            </>}            
+            </>}
             <ActionButton
                 icon="bx bx-x"
                 className="search-option-del"
                 text={removeText ?? ""}
-                onClick={onRemove}
+                onClick={(e) => {
+                    e.preventDefault();
+                    onRemove?.();
+                }}
             />
         </td>
     );

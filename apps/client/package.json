@@ -7,7 +7,7 @@
   "author": {
     "name": "Trilium Notes Team",
     "email": "contact@eliandoran.me",
-    "url": "https://github.com/TriliumNext/Notes"
+    "url": "https://github.com/TriliumNext/Trilium"
   },
   "scripts": {
     "build": "cross-env NODE_OPTIONS=--max-old-space-size=4096 vite build",
