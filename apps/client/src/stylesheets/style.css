@@ -2995,8 +2995,37 @@ iframe.print-iframe {
     --_task-checkbox-background: var(--task-checkbox-done-color);
 }
 
+/* The read-only view renders a real <label>, which Bootstrap's reboot makes
+   inline-block — an empty label (its checkbox is absolutely positioned below)
+   then produces a full-height line of its own, pushing the item text onto the
+   next line. Restore the plain inline display so the empty label collapses. */
+:root .ck-content.ck-content ul.todo-list li .todo-list__label {
+    display: inline;
+}
+
 :root .ck-content.ck-content ul.todo-list li .todo-list__label input[type="checkbox"] {
     --_checkbox-size: var(--ck-content-todo-list-checkmark-size);
+
+    /* Take the checkbox out of the inline flow in every variant and centre it
+       geometrically on the first text line (the li is the positioned ancestor,
+       `li p` has no margin, and CKEditor's own `left/right: -25px` still places
+       it in the gutter). Centering via `vertical-align: middle` depends on font
+       metrics and differs from the absolutely-positioned `_without-description`
+       variant — this makes both variants share one deterministic geometry. */
+    position: absolute;
+    top: calc((1lh - var(--_checkbox-size)) / 2);
+    /* `1lh` must resolve against the text's line height, not the UA form-control
+       font, and the UA's 3px checkbox margins would offset the absolute position.
+       (Bootstrap's reboot happens to do both, but don't depend on it.) */
+    margin: 0;
+    font: inherit;
+}
+
+/* CKEditor middle-aligns the inline description span, while a real-<p> description
+   (the `_without-description` variant) sits on the plain baseline — so the text
+   position depended on which variant rendered. Align both on the baseline. */
+:root .ck-content.ck-content ul.todo-list li .todo-list__label .todo-list__label__description {
+    vertical-align: baseline;
 }
 
 /* Checkbox */
