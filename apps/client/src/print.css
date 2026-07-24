@@ -119,11 +119,13 @@ body[data-note-type="text"] .ck-content {
     .ck-content .todo-list__label__description::after {
         content: var(--task-state-glyph);
         line-height: var(--box-size);
-        vertical-align: middle;
         text-align: center;
         font-family: var(--task-state-glyph-font-family);
-        font-size: calc(var(--box-size) * var(--glyph-ratio));
+        /* Em box == checkbox box, shrink via scale(): geometric centring,
+           consistent with the on-screen checkbox glyph. */
+        font-size: var(--box-size);
         color: var(--task-state-color);
+        transform: scale(var(--glyph-ratio));
     }
 
     .ck-content .todo-list__label input[type="checkbox"] {

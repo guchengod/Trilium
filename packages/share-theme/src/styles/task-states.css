@@ -51,6 +51,10 @@ html.theme-dark [data-trilium-task-state] {
     justify-content: center;
     content: var(--task-state-glyph);
     font-family: var(--task-state-glyph-font-family);
-    font-size: calc(var(--ck-content-todo-list-checkmark-size) * 0.8);
+    /* Em box == checkbox box, shrink via scale(): geometric, so the glyph
+       stays centred at any zoom/DPI instead of snapping to the pixel grid. */
+    font-size: var(--ck-content-todo-list-checkmark-size);
+    line-height: 1;
     color: var(--_task-state-color);
+    transform: scale(0.8);
 }

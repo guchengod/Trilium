@@ -3016,16 +3016,21 @@ iframe.print-iframe {
     /* Checkbox tick */
     &::after {
         all: unset;
-        display: inline-flex;
+        display: flex;
         align-items: center;
         justify-content: center;
         position: absolute;
         inset: 0;
         content: var(--task-state-glyph);
         font-family: var(--task-state-glyph-font-family, inherit);
-        font-size: calc(var(--_checkbox-size) * var(--task-checkbox-glyph-ratio));
+        /* Em box == checkbox box: the flex centering has zero leftover
+           space to round, so nothing can snap asymmetrically. */
+        font-size: var(--_checkbox-size);
+        line-height: 1;
         color: var(--task-checkbox-glyph-color);
-        text-box-trim: trim-both;
+        /* The shrink is geometric, not typographic — scale() doesn't snap
+           to the device-pixel grid, so the glyph stays centred at any zoom. */
+        transform: scale(var(--task-checkbox-glyph-ratio));
     }
 
     &:disabled {
