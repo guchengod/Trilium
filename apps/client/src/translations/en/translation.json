@@ -273,6 +273,8 @@
     "select_sections": "Select the sections to import",
     "select_sections_hint": "OneNote doesn't include the original ordering in the import data, so sections and groups are sorted by creation date and may not match how they appear in OneNote.",
     "import": "Import selected",
+    "import_count_one": "Import {{count}} section",
+    "import_count_other": "Import {{count}} sections",
     "attach_source": "Attach original HTML (debug)",
     "attach_source_hint": "Saves each page's unmodified OneNote HTML as an attachment on the imported note, for comparing against the converted result."
   },

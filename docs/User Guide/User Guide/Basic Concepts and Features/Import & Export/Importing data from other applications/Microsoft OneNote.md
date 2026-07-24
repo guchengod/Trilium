@@ -19,9 +19,13 @@ The following features are preserved by Trilium during the import process:
     *   Black-colored text is intentionally stripped to allow it to work in dark themes.
 *   <a class="reference-link" href="../../../Note%20Types/Text/Lists.md">Lists</a> with different bullet types.
 *   <a class="reference-link" href="../../../Note%20Types/Text/Tables.md">Tables</a>
+    *   Cell backgrounds are preserved, including a best-effort hue correction because the colors returned by the Graph API are sometimes incorrect.
+    *   Cell widths are also preserved proportionally, with the only difference that tables in Trilium have a percentage-based width, not fixed pixel sizes.
 *   Images and <a class="reference-link" href="../../Notes/Attachments.md">Attachments</a>.
+    *   Screen clippings are also properly supported since v0.104.1, displaying their timestamp as a figure caption.
 *   To-do lists
-*   Hand-drawing is preserved and displayed as an SVG image (however there are some
+*   Hand-drawing is preserved and displayed as an SVG image inside the note
+    *   OneNote's default color (black) is special since it also renders as white for dark themes. Since v0.104.1, this is also supported by using a special SVG tweak which reacts to light/dark themes.
 *   Links between other imported pages are converted to <a class="reference-link" href="../../../Note%20Types/Text/Links/Internal%20(reference)%20links.md">Internal (reference) links</a> if the text of the link matches the name of the page, or plain links otherwise. If the pages are not part of the import, the original `onenote:` link is kept.
 *   Tags (apart from to-do lists) are mildly preserved by converting them to emojis. This loses their searchability. Since Trilium has no concept of inline attributes or badges, this is considered a middle-ground.
 
@@ -77,6 +81,7 @@ The following are known limitations due to how the information comes from the im
 *   Revision history.
 *   Paragraph indentation.
 *   Section colors.
+*   Drawings inside titles, the title might appear incomplete or “Untitled”.
 
 ## Reporting issues
 

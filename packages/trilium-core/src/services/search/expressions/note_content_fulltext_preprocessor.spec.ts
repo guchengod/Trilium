@@ -39,6 +39,20 @@ describe("Canvas preprocessing", () => {
     });
 });
 
+describe("Text (HTML) preprocessing", () => {
+    const type: NoteType = "text";
+    const mime = "text/html";
+
+    it("surfaces link-preview title, url and description from data attributes", () => {
+        const content = `<section class="link-embed" data-url="https://en.wikipedia.org/wiki/The_Terminator" data-title="The Terminator - Wikipedia" data-description="A 1984 science fiction film.">&nbsp;</section>`;
+        const result = preprocessContent(content, type, mime);
+
+        expect(result).toContain("the terminator - wikipedia");
+        expect(result).toContain("https://en.wikipedia.org/wiki/the_terminator");
+        expect(result).toContain("a 1984 science fiction film.");
+    });
+});
+
 describe("LLM chat preprocessing", () => {
     const type: NoteType = "llmChat";
     const mime = "application/json";

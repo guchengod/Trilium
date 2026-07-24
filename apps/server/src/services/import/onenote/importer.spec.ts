@@ -1,4 +1,4 @@
-import { becca, cls, note_service as noteService } from "@triliumnext/core";
+import { becca, cls, date_utils, note_service as noteService } from "@triliumnext/core";
 import { beforeAll, describe, expect, it, vi } from "vitest";
 
 import sqlInit from "../../sql_init.js";
@@ -198,6 +198,47 @@ describe("importSelection (real DB)", () => {
         expect(content).toContain(`href="#root/${badNote?.noteId}"`);
     });
 
+    it("preserves the OneNote page order even when #newNotesOnTop is inherited onto the target", async () => {
+        graphMock.listPages.mockResolvedValue([
+            { id: "1-ord-a", title: "Order Page A", level: 0 },
+            { id: "1-ord-b", title: "Order Page B", level: 0 },
+            { id: "1-ord-c", title: "Order Page C", level: 0 }
+        ]);
+        graphMock.getPageContent.mockResolvedValue({ html: "<p>hi</p>", inkml: "" });
+
+        // The label the user reported: inheritable on the import target, so every note created during the
+        // import (root, section, pages) sees it. Without explicit positions it would invert the page order.
+        const parent = cls.init(() => {
+            const note = noteService.createNewNote({
+                parentNoteId: "root",
+                title: "order parent",
+                content: "",
+                type: "text",
+                mime: "text/html"
+            }).note;
+            note.addLabel("newNotesOnTop", "", true);
+            return note;
+        });
+
+        await cls.init(() => importSelection({
+            getAccessToken: () => Promise.resolve("token"),
+            parentNoteId: parent.noteId,
+            sections: [{ id: "sec-order", title: "Order Section", groupPath: [], notebookId: "nb-order", notebookTitle: "Order Notebook" }],
+            taskId: "task-order"
+        }));
+
+        // Order lives in notePosition (becca's in-memory `children` is insertion order); the tree sorts
+        // by it the way the client does. With the newNotesOnTop default each page would land above the
+        // last (positions -10, -20, -30 → C, B, A); the fix's explicit ascending positions keep A, B, C.
+        const sectionNote = Object.values(becca.notes).find((note) => note.title === "Order Section");
+        const orderedTitles = sectionNote
+            ?.getChildBranches()
+            .slice()
+            .sort((a, b) => a.notePosition - b.notePosition)
+            .map((branch) => branch.getNote().title);
+        expect(orderedTitles).toEqual(["Order Page A", "Order Page B", "Order Page C"]);
+    });
+
     it("aborts the import when too many consecutive pages fail (systemic failure)", async () => {
         graphMock.listPages.mockResolvedValue(
             Array.from({ length: 8 }, (_, i) => ({ id: `1-cb${i}`, title: `CB Page ${i}`, level: 0 }))
@@ -259,5 +300,39 @@ describe("importSelection (real DB)", () => {
         expect(pages.size).toBe(8);
         expect([...pages.values()].every((note) => note.hasOwnedLabel("oneNoteImportFailed"))).toBe(true);
         expect([...pages.values()][0]?.getContent()).toContain("could not be imported");
+    });
+
+    it("prefers the authored created date from the page HTML over the Graph object's metadata", async () => {
+        // A moved/copied/migrated page: the Graph page *object*'s createdDateTime is re-stamped to the
+        // time of the move, while the date OneNote actually displays under the title lives in the page
+        // HTML's `<meta name="created">`. The authored date must win; the object date remains the
+        // fallback for pages whose HTML carries no meta.
+        graphMock.listPages.mockResolvedValue([
+            { id: "1-meta", title: "Authored Date Page", level: 0, createdDateTime: "2020-10-20T10:00:00Z", lastModifiedDateTime: "2021-03-04T05:06:07Z" },
+            { id: "1-nometa", title: "Fallback Date Page", level: 0, createdDateTime: "2020-10-20T10:00:00Z" }
+        ]);
+        graphMock.getPageContent.mockImplementation(async (_token, pageId) => ({
+            html: pageId === "1-meta"
+                ? `<html><head><title>Authored Date Page</title><meta name="created" content="2019-01-19T20:24:00.0000000" /></head><body><p>hi</p></body></html>`
+                : "<p>hi</p>",
+            inkml: ""
+        }));
+
+        await cls.init(() => importSelection({
+            getAccessToken: () => Promise.resolve("token"),
+            parentNoteId: "root",
+            sections: [{ id: "sec-dates", title: "Date Section", groupPath: [], notebookId: "nb-dates", notebookTitle: "Date Notebook" }],
+            taskId: "task-authored-dates"
+        }));
+
+        const authored = Object.values(becca.notes).find((note) => note.title === "Authored Date Page");
+        // The meta value is offset-less wall-clock time and is parsed as server-local, so the expected
+        // value goes through the same Date conversion to stay timezone-independent.
+        expect(authored?.utcDateCreated).toBe(date_utils.utcDateTimeStr(new Date("2019-01-19T20:24:00.0000000")));
+        // The modification date has no in-content counterpart and stays the Graph object's value.
+        expect(authored?.utcDateModified).toBe("2021-03-04 05:06:07.000Z");
+
+        const fallback = Object.values(becca.notes).find((note) => note.title === "Fallback Date Page");
+        expect(fallback?.utcDateCreated).toBe("2020-10-20 10:00:00.000Z");
     });
 });

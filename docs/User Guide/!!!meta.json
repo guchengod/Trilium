@@ -7415,13 +7415,6 @@
                                                 {
                                                     "type": "relation",
                                                     "name": "internalLink",
-                                                    "value": "NdowYOC1GFKS",
-                                                    "isInheritable": false,
-                                                    "position": 30
-                                                },
-                                                {
-                                                    "type": "relation",
-                                                    "name": "internalLink",
                                                     "value": "0vhv7lsOLy82",
                                                     "isInheritable": false,
                                                     "position": 40
@@ -7481,6 +7474,13 @@
                                                     "value": "bx bx-window-open",
                                                     "isInheritable": false,
                                                     "position": 20
+                                                },
+                                                {
+                                                    "type": "relation",
+                                                    "name": "internalLink",
+                                                    "value": "NdowYOC1GFKS",
+                                                    "isInheritable": false,
+                                                    "position": 110
                                                 }
                                             ],
                                             "format": "markdown",
