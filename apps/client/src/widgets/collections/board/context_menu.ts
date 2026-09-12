@@ -77,7 +77,7 @@ export function openColumnContextMenu(api: Api, event: ContextMenuEvent, column:
         {
             title: t("board_view.copy-reference"),
             uiIcon: "bx bx-directions",
-            handler: () => copyTextWithToast(api.getColumnReference(column.value))
+            handler: async () => copyTextWithToast(await api.getColumnReference(column.value))
         }
     ];
 

@@ -255,24 +255,25 @@ describe("Board column context menu", () => {
      * menu still opens on an entry rather than on the divider that closes the group.
      */
     it("opens on an entry rather than a divider when it has nothing to rename", () => {
-        const items = openMenu({ ensureColumnId: () => "colId1234567" } as unknown as BoardApi,
-            { canRename: false, isCollapsed: true });
+        const items = openMenu({} as BoardApi, { canRename: false, isCollapsed: true });
 
         expect(items[0]).not.toMatchObject({ kind: "separator" });
         expect(items[0]).toMatchObject({ uiIcon: "bx bx-directions" });
     });
 
-    it("copies a link to the column, which is what stores an id for it", () => {
+    /** The id is settled by the server, so the link is awaited before it is copied. */
+    it("copies a link to the column once its id has been assigned", async () => {
         const copy = vi.spyOn(clipboard, "copyTextWithToast").mockImplementation(() => {});
         const api = {
-            getColumnReference: (column: string) => `#root/board1234?column=id-of-${column}`
+            getColumnReference: async (column: string) =>
+                `#root/board1234?column=id-of-${column}`
         } as unknown as BoardApi;
 
         const entry = openMenu(api, { value: "To Do" }).find(item =>
             item && "uiIcon" in item && item.uiIcon === "bx bx-directions");
         if (!entry || !("handler" in entry)) throw new Error("expected a copy-reference entry");
 
-        entry.handler?.(entry, {} as never);
+        await entry.handler?.(entry, {} as never);
         expect(copy).toHaveBeenCalledWith("#root/board1234?column=id-of-To Do");
     });
 

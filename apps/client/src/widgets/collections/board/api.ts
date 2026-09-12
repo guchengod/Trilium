@@ -807,31 +807,47 @@ export default class BoardApi {
     }
 
     /**
-     * The id a reference names a column by, storing one where the column has none yet.
+     * The id a reference names a column by, assigning one where the column has none yet.
      *
      * A column with no stored entry at all is given one here: it is drawn from the definition or
      * from a value its cards carry, and until something is stored for it there is nothing to hold
      * an id.
+     *
+     * The assignment goes through the server, which reads and writes `board.json` in one request.
+     * Two clients copying a reference to the same id-less column would otherwise each generate an
+     * id and the second write would replace the first, breaking the link already copied from it.
+     * The server answers with the id the column actually holds, which is this one only when it
+     * arrived first.
      */
-    ensureColumnId(column: string) {
+    async ensureColumnId(column: string) {
         const stored = readColumnId(this.viewConfig, this.groupBy, column);
         if (stored) {
             return stored;
         }
 
         const id = newColumnId();
-        this.updateColumn(column, { id });
-        return id;
+        try {
+            const settled = await server.put<{ id: string }>(
+                `notes/${this.parentNote.noteId}/board/column-id`,
+                { groupBy: this.groupBy, value: column, id });
+            return settled?.id ?? id;
+        } catch (e) {
+            // The link still works for as long as nothing else claims the column, and the board
+            // writes the id out with the rest of the configuration as it draws.
+            console.error("Failed to store the board column id:", e);
+            this.updateColumn(column, { id });
+            return id;
+        }
     }
 
     /**
      * The link that opens this board on one of its columns, which the menu copies.
      *
-     * Storing an id for a column that has none is what makes the link outlive a rename, so copying
-     * a reference writes to `board.json` where nothing has been stored for the column yet.
+     * Assigning an id to a column that has none is what makes the link outlive a rename, so
+     * copying a reference writes to `board.json` where nothing has been stored for the column yet.
      */
-    getColumnReference(column: string) {
-        return columnReference(this.boardNotePath, this.ensureColumnId(column));
+    async getColumnReference(column: string) {
+        return columnReference(this.boardNotePath, await this.ensureColumnId(column));
     }
 
     /** The link that opens this board on one of its cards, which is named by its own note id. */

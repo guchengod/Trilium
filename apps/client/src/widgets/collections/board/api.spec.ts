@@ -2549,59 +2549,83 @@ describe("the columns as the right pane lists them", () => {
 });
 
 describe("references to a board's columns and cards", () => {
-    it("keeps the id a column already has, so the link stays the same", () => {
+    it("keeps the id a column already has, without asking the server", async () => {
+        const put = vi.spyOn(server, "put");
         const { api, saved } = createApi(
             { columns: [ { value: "To Do", id: "colTodo00001" } ] }, [ "To Do" ]);
 
-        expect(api.ensureColumnId("To Do")).toBe("colTodo00001");
-        expect(api.ensureColumnId("To Do")).toBe("colTodo00001");
+        await expect(api.ensureColumnId("To Do")).resolves.toBe("colTodo00001");
+        await expect(api.ensureColumnId("To Do")).resolves.toBe("colTodo00001");
+        expect(put).not.toHaveBeenCalled();
         // Nothing to store, so the board is left alone.
         expect(saved).toEqual([]);
     });
 
     /**
      * A column drawn from the definition or from a value its cards carry has no stored entry at
-     * all, so the first reference taken of it is what writes one.
+     * all, so the first reference taken of it is what assigns one.
+     *
+     * The server reads and writes `board.json` in one request, so it decides: two clients copying a
+     * reference to the same column at once are both answered with the id that arrived first.
      */
-    it("stores an id for a column that has none, keeping what it already holds", () => {
-        const { api, saved } = createApi(
-            { columns: [ { value: "To Do", icon: "bx bx-list-ul" } ] }, [ "To Do", "Done" ]);
+    it("asks the server to assign an id for a column that has none, and uses its answer",
+        async () => {
+            const board = buildNote({ title: "Board" });
+            const put = vi.spyOn(server, "put")
+                .mockResolvedValue({ id: "colOther0001" } as never);
+            const { api, saved } = createApi(
+                { columns: [ { value: "To Do", icon: "bx bx-list-ul" } ] }, [ "To Do" ], board);
 
-        const todo = api.ensureColumnId("To Do");
-        expect(todo).toHaveLength(COLUMN_ID_LENGTH);
-        expect(saved.at(-1)?.columns)
-            .toEqual([ { value: "To Do", icon: "bx bx-list-ul", id: todo } ]);
+            await expect(api.ensureColumnId("To Do")).resolves.toBe("colOther0001");
+            expect(put).toHaveBeenCalledWith(
+                `notes/${board.noteId}/board/column-id`,
+                { groupBy: "status", value: "To Do", id: expect.any(String) });
+            // The server owns the write, so nothing is stored from here.
+            expect(saved).toEqual([]);
 
-        const done = api.ensureColumnId("Done");
-        expect(done).not.toBe(todo);
-        expect(saved.at(-1)?.columns).toEqual([
-            { value: "To Do", icon: "bx bx-list-ul", id: todo },
-            { value: "Done", id: done }
-        ]);
-    });
+            // The id offered is a fresh one of the right length, and is not what came back.
+            const offered = put.mock.calls.at(-1)?.[1] as { id: string };
+            expect(offered.id).toHaveLength(COLUMN_ID_LENGTH);
+            expect(offered.id).not.toBe("colOther0001");
+        });
 
-    it("writes one grouping's ids under that grouping alone", () => {
+    it("names the grouping the column belongs to when asking for an id", async () => {
         const board = buildNote({ title: "Board" });
-        const { api, saved } = createApi(
+        const put = vi.spyOn(server, "put").mockResolvedValue({ id: "colHigh00001" } as never);
+        const { api } = createApi(
             { columns: [ { value: "To Do", id: "colTodo00001" } ] }, [ "High" ], board,
             "priority");
 
-        const high = api.ensureColumnId("High");
-        expect(saved.at(-1)?.priorityViewColumns).toEqual([ { value: "High", id: high } ]);
-        expect(saved.at(-1)?.columns).toEqual([ { value: "To Do", id: "colTodo00001" } ]);
+        await expect(api.ensureColumnId("High")).resolves.toBe("colHigh00001");
+        expect(put).toHaveBeenCalledWith(`notes/${board.noteId}/board/column-id`,
+            { groupBy: "priority", value: "High", id: expect.any(String) });
     });
 
-    it("builds the links the menu copies, from the path the pane reached the board by", () => {
-        const board = buildNote({ title: "Board" });
-        const { api } = createApi(
-            { columns: [ { value: "To Do", id: "colTodo00001" } ] }, [ "To Do" ], board);
-        api.noteContext = { notePath: `root/parent1234/${board.noteId}` } as NoteContext;
+    /** The link still works for as long as nothing else claims the column. */
+    it("stores the id it generated when the server cannot be reached", async () => {
+        vi.spyOn(console, "error").mockImplementation(() => {});
+        vi.spyOn(server, "put").mockRejectedValue(new Error("offline"));
+        const { api, saved } = createApi(
+            { columns: [ { value: "To Do", icon: "bx bx-list-ul" } ] }, [ "To Do" ]);
 
-        expect(api.getColumnReference("To Do"))
-            .toBe(`#root/parent1234/${board.noteId}?column=colTodo00001`);
-        expect(api.getCardReference("card00000001"))
-            .toBe(`#root/parent1234/${board.noteId}?card=card00000001`);
+        const id = await api.ensureColumnId("To Do");
+        expect(id).toHaveLength(COLUMN_ID_LENGTH);
+        expect(saved.at(-1)?.columns)
+            .toEqual([ { value: "To Do", icon: "bx bx-list-ul", id } ]);
     });
+
+    it("builds the links the menu copies, from the path the pane reached the board by",
+        async () => {
+            const board = buildNote({ title: "Board" });
+            const { api } = createApi(
+                { columns: [ { value: "To Do", id: "colTodo00001" } ] }, [ "To Do" ], board);
+            api.noteContext = { notePath: `root/parent1234/${board.noteId}` } as NoteContext;
+
+            await expect(api.getColumnReference("To Do"))
+                .resolves.toBe(`#root/parent1234/${board.noteId}?column=colTodo00001`);
+            expect(api.getCardReference("card00000001"))
+                .toBe(`#root/parent1234/${board.noteId}?card=card00000001`);
+        });
 
     /** A board drawn outside a pane, such as in a note preview, still has itself to name. */
     it("falls back to the board's own id where the pane names no path", () => {
