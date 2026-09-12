@@ -28,66 +28,6 @@ export const COLUMN_ID_LENGTH = 12;
 /** How many frames the reveal waits for the board to draw what a reference names. */
 const REVEAL_TRIES = 30;
 
-/** A new column id. Uses `randomString`; `crypto.randomUUID` needs a secure context. */
-export function newColumnId() {
-    return randomString(COLUMN_ID_LENGTH);
-}
-
-/** What a column reference resolves to: the grouping that owns the column, and the column. */
-export interface ColumnReferenceTarget {
-    /** The grouping the column belongs to, as `#board:groupBy` writes it. */
-    groupBy: string;
-    /** The value the column's cards carry, which is what the board draws it by. */
-    value: string;
-}
-
-/**
- * Finds the column an id names, searching every grouping's column list.
- *
- * Each grouping stores its own columns, so an id can belong to a grouping other than the one the
- * board shows. The board switches to the grouping returned here instead of reporting the column
- * missing.
- */
-export function findColumnById(
-    config: BoardViewData | undefined, id: string
-): ColumnReferenceTarget | undefined {
-    if (!config || !id) {
-        return undefined;
-    }
-
-    for (const [ key, value ] of Object.entries(config)) {
-        const groupBy = boardGroupByFromColumnsKey(key);
-        if (!groupBy || !Array.isArray(value)) {
-            continue;
-        }
-
-        const column = (value as BoardColumnData[]).find(candidate => candidate?.id === id);
-        if (column) {
-            return { groupBy, value: column.value };
-        }
-    }
-
-    return undefined;
-}
-
-/** The stored id of a column of one grouping, or nothing where it has none yet. */
-export function readColumnId(
-    config: BoardViewData | undefined, groupBy: string, value: string
-): string | undefined {
-    const columns = config?.[boardColumnsKey(groupBy)] as BoardColumnData[] | undefined;
-    return columns?.find(column => column.value === value)?.id;
-}
-
-/** The link that opens a board on one of its columns. */
-export function columnReference(notePath: string, columnId: string) {
-    return `#${notePath}?column=${encodeURIComponent(columnId)}`;
-}
-
-/** The link that opens a board on one of its cards. */
-export function cardReference(notePath: string, noteId: string) {
-    return `#${notePath}?card=${encodeURIComponent(noteId)}`;
-}
-
 /**
  * A reference read off the view scope, and the board it was read for.
  *
@@ -276,6 +216,66 @@ export function useBoardReference({
     function abandonedBy(board: string) {
         return () => isUnmounted.current || drawn.current !== board;
     }
+}
+
+/** A new column id. Uses `randomString`; `crypto.randomUUID` needs a secure context. */
+export function newColumnId() {
+    return randomString(COLUMN_ID_LENGTH);
+}
+
+/** What a column reference resolves to: the grouping that owns the column, and the column. */
+export interface ColumnReferenceTarget {
+    /** The grouping the column belongs to, as `#board:groupBy` writes it. */
+    groupBy: string;
+    /** The value the column's cards carry, which is what the board draws it by. */
+    value: string;
+}
+
+/**
+ * Finds the column an id names, searching every grouping's column list.
+ *
+ * Each grouping stores its own columns, so an id can belong to a grouping other than the one the
+ * board shows. The board switches to the grouping returned here instead of reporting the column
+ * missing.
+ */
+export function findColumnById(
+    config: BoardViewData | undefined, id: string
+): ColumnReferenceTarget | undefined {
+    if (!config || !id) {
+        return undefined;
+    }
+
+    for (const [ key, value ] of Object.entries(config)) {
+        const groupBy = boardGroupByFromColumnsKey(key);
+        if (!groupBy || !Array.isArray(value)) {
+            continue;
+        }
+
+        const column = (value as BoardColumnData[]).find(candidate => candidate?.id === id);
+        if (column) {
+            return { groupBy, value: column.value };
+        }
+    }
+
+    return undefined;
+}
+
+/** The stored id of a column of one grouping, or nothing where it has none yet. */
+export function readColumnId(
+    config: BoardViewData | undefined, groupBy: string, value: string
+): string | undefined {
+    const columns = config?.[boardColumnsKey(groupBy)] as BoardColumnData[] | undefined;
+    return columns?.find(column => column.value === value)?.id;
+}
+
+/** The link that opens a board on one of its columns. */
+export function columnReference(notePath: string, columnId: string) {
+    return `#${notePath}?column=${encodeURIComponent(columnId)}`;
+}
+
+/** The link that opens a board on one of its cards. */
+export function cardReference(notePath: string, noteId: string) {
+    return `#${notePath}?card=${encodeURIComponent(noteId)}`;
 }
 
 /** Scrolls the target into view and focuses it, which is how the reference points it out. */
