@@ -41,7 +41,12 @@ export const VIEW_TYPE_MAPPINGS: Record<ViewTypeOptions, string> = {
 
 const MAX_OPEN_TABS = 50;
 
-export default function CollectionProperties({ note, centerChildren, rightChildren, optionsChildren }: {
+export default function CollectionProperties({
+    note,
+    centerChildren,
+    rightChildren,
+    optionsChildren
+}: {
     note: FNote;
     centerChildren?: ComponentChildren;
     rightChildren?: ComponentChildren;
