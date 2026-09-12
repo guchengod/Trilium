@@ -28,6 +28,7 @@ import { type NoteTypeOption, resolveNoteTypeOptions } from "../../../services/n
 import { type PromotedAttributeSetting, resolvePromotedAttributes } from "../promoted_attributes";
 import type { SortContext } from "../sorting";
 import CollectionProperties from "../../note_bars/CollectionProperties";
+import { FormListItem } from "../../react/FormList";
 import FormTextArea from "../../react/FormTextArea";
 import FormTextBox from "../../react/FormTextBox";
 import {
@@ -1233,6 +1234,12 @@ export default function BoardView({
             />
             <CollectionProperties
                 note={parentNote}
+                optionsChildren={
+                    <FormListItem
+                        icon="bx bx-cog"
+                        onClick={() => setIsEditingProperties(true)}
+                    >{t("board_view.properties")}</FormListItem>
+                }
                 rightChildren={<>
                     <BoardGroupBy
                         note={parentNote}

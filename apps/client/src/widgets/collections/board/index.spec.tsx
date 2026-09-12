@@ -4229,10 +4229,38 @@ describe("Board properties from the note menu", () => {
         expect(isOpen()).toBe(true);
     });
 
+    /**
+     * The same dialog from the collection bar, where it sits last in the settings menu so that
+     * the view options above it stay together.
+     */
+    it("opens the dialog from the collection settings menu, below a divider", async () => {
+        await renderBoardInContext("ntx-1");
+
+        const cog = container?.querySelector<HTMLElement>(".collection-properties button.bx-cog");
+        const options = cog?.closest(".dropdown");
+        if (!options) throw new Error("expected a settings menu on the collection bar");
+        await act(async () => {
+            $(options as HTMLElement).trigger("show.bs.dropdown");
+            await flush();
+        });
+
+        const entry = [ ...options.querySelectorAll<HTMLElement>(".dropdown-item") ].at(-1);
+        if (!entry) throw new Error("expected an entry in the settings menu");
+        expect(entry.textContent).toContain("board_view.properties");
+        expect(entry.previousElementSibling?.className).toContain("dropdown-divider");
+
+        await act(async () => {
+            entry.click();
+            await flush();
+        });
+        expect(document.querySelector(".board-properties-dialog .modal-dialog")).toBeTruthy();
+    });
+
     /** Mounts a board belonging to the given tab, returning what events reach it through. */
     async function renderBoardInContext(ntxId: string) {
         const note = buildNote({
             title: "Board",
+            type: "book",
             "#collection": "",
             "#viewType": "board",
             children: [
