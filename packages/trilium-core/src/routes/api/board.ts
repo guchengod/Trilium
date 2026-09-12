@@ -164,7 +164,9 @@ function renameInConfig(
  * copied from it. Read and written here inside one request, the first id to arrive is the one the
  * column keeps, and the second client is answered with that same id.
  *
- * @returns the id the column now holds, which is the caller's only when it arrived first.
+ * @returns the id the column now holds, which is the caller's only when it arrived first, and
+ *          whether it was stored. An unreadable configuration is not overwritten here, so the
+ *          client is told to write the id itself along with the rest of what the board is drawing.
  */
 function ensureColumnId(req: Request<{ noteId: string }>) {
     const { groupBy, value, id } = req.body as EnsureColumnIdRequest;
@@ -183,19 +185,18 @@ function ensureColumnId(req: Request<{ noteId: string }>) {
 
     let config: Partial<Record<BoardColumnsKey, StoredColumn[]>> = {};
     if (attachment) {
-        try {
-            config = JSON.parse(attachment.getContent().toString());
-        } catch {
-            // A configuration that cannot be read is left as it is, and the caller keeps the id
-            // it generated: the board writes the whole configuration out again as it draws.
-            return { id };
+        const parsed = parseConfig(attachment.getContent().toString());
+        if (!parsed) {
+            return { id, stored: false };
         }
+
+        config = parsed;
     }
 
     const columns = config[columnsKey] ?? [];
     const stored = columns.find(column => column.value === value);
     if (typeof stored?.id === "string" && stored.id) {
-        return { id: stored.id };
+        return { id: stored.id, stored: true };
     }
 
     const written = stored
@@ -210,7 +211,32 @@ function ensureColumnId(req: Request<{ noteId: string }>) {
         content: JSON.stringify({ ...config, [columnsKey]: written })
     }, "title");
 
-    return { id };
+    return { id, stored: true };
+}
+
+
+/**
+ * Reads `board.json` for {@link ensureColumnId}, or nothing where it cannot be made sense of.
+ *
+ * An unreadable configuration is left as it stands rather than replaced with one holding only this
+ * column, so that it can still be repaired by hand. `ensureColumnId` reports it as unstored, and
+ * the client writes the id with the rest of the configuration the board is drawing.
+ */
+function parseConfig(content: string): Partial<Record<BoardColumnsKey, StoredColumn[]>> | undefined {
+    let parsed: unknown;
+    try {
+        parsed = JSON.parse(content);
+    } catch {
+        return undefined;
+    }
+
+    // `JSON.parse` returns null, a number or an array for content that is valid JSON without being
+    // a configuration, none of which the columns can be read off.
+    if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) {
+        return undefined;
+    }
+
+    return parsed as Partial<Record<BoardColumnsKey, StoredColumn[]>>;
 }
 
 export default {

@@ -125,12 +125,12 @@ describe("Board API (core)", () => {
         it("assigns the offered id to a column that has none, keeping what it holds", async () => {
             const board = await buildBoard([ "Alpha", "Beta" ]);
 
-            const res = await api.put<{ id: string }>(
+            const res = await api.put<{ id: string, stored: boolean }>(
                 `/api/notes/${board.noteId}/board/column-id`,
                 { body: { value: "Beta", id: "colBeta00001" } });
 
             expect(res.status).toBe(200);
-            expect(res.body.id).toBe("colBeta00001");
+            expect(res.body).toMatchObject({ id: "colBeta00001", stored: true });
             expect(configOf(board.noteId).columns).toEqual([
                 { value: "Alpha" },
                 { value: "Beta", color: "#ff0000", id: "colBeta00001" }
@@ -142,12 +142,12 @@ describe("Board API (core)", () => {
             await api.put(`/api/notes/${board.noteId}/board/column-id`,
                 { body: { value: "Alpha", id: "colFirst0001" } });
 
-            const res = await api.put<{ id: string }>(
+            const res = await api.put<{ id: string, stored: boolean }>(
                 `/api/notes/${board.noteId}/board/column-id`,
                 { body: { value: "Alpha", id: "colSecond001" } });
 
             expect(res.status).toBe(200);
-            expect(res.body.id).toBe("colFirst0001");
+            expect(res.body).toMatchObject({ id: "colFirst0001", stored: true });
             expect(configOf(board.noteId).columns?.[0].id).toBe("colFirst0001");
         });
 
@@ -176,6 +176,33 @@ describe("Board API (core)", () => {
             expect(configOf(board.noteId).priorityViewColumns)
                 .toEqual([ { value: "High", id: "colHigh00001" } ]);
             expect(configOf(board.noteId).columns?.some(column => column.id)).toBe(false);
+        });
+
+        /**
+         * `board.json` is the only place a column id is kept, so an id reported as stored when it
+         * was not would hand the client a link that resolves to nothing. Saying so sends the client
+         * to write the id itself, with the rest of the configuration the board is drawing.
+         */
+        it("says it stored nothing for a configuration it cannot read", async () => {
+            // A board of its own per case: an attachment is added rather than replaced, and the
+            // first one with the title is the one that is read.
+            for (const content of [ "{ truncated", "null", "[]", "42" ]) {
+                const board = await createTextNote(api, { title: "Board" });
+                await api.post(`/api/notes/${board.noteId}/attachments`, {
+                    body: {
+                        title: "board.json", role: "viewConfig", mime: "application/json", content
+                    }
+                });
+
+                const res = await api.put<{ id: string, stored: boolean }>(
+                    `/api/notes/${board.noteId}/board/column-id`,
+                    { body: { value: "Alpha", id: "colAlpha0001" } });
+
+                expect(res.status, content).toBe(200);
+                expect(res.body, content).toMatchObject({ id: "colAlpha0001", stored: false });
+                // Left as it was, so it can still be repaired by hand.
+                expect(attachmentOf(board.noteId), content).toBe(content);
+            }
         });
 
         it("refuses a blank id and a missing column, without writing anything", async () => {
@@ -238,6 +265,12 @@ describe("Board API (core)", () => {
     function configOf(boardId: string): Record<string, StoredColumns> & { columns: StoredColumns } {
         const attachment = becca.getNoteOrThrow(boardId).getAttachmentByTitle("board.json");
         return JSON.parse(attachment?.getContent().toString() ?? "{}");
+    }
+
+    /** The raw content of `board.json`, for a configuration no parser should be handed. */
+    function attachmentOf(boardId: string) {
+        return becca.getNoteOrThrow(boardId).getAttachmentByTitle("board.json")
+            ?.getContent().toString();
     }
 
     function storedColumns(boardId: string) {

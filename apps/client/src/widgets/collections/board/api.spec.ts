@@ -2572,7 +2572,7 @@ describe("references to a board's columns and cards", () => {
         async () => {
             const board = buildNote({ title: "Board" });
             const put = vi.spyOn(server, "put")
-                .mockResolvedValue({ id: "colOther0001" } as never);
+                .mockResolvedValue({ id: "colOther0001", stored: true } as never);
             const { api, saved } = createApi(
                 { columns: [ { value: "To Do", icon: "bx bx-list-ul" } ] }, [ "To Do" ], board);
 
@@ -2591,7 +2591,8 @@ describe("references to a board's columns and cards", () => {
 
     it("names the grouping the column belongs to when asking for an id", async () => {
         const board = buildNote({ title: "Board" });
-        const put = vi.spyOn(server, "put").mockResolvedValue({ id: "colHigh00001" } as never);
+        const put = vi.spyOn(server, "put")
+            .mockResolvedValue({ id: "colHigh00001", stored: true } as never);
         const { api } = createApi(
             { columns: [ { value: "To Do", id: "colTodo00001" } ] }, [ "High" ], board,
             "priority");
@@ -2599,6 +2600,21 @@ describe("references to a board's columns and cards", () => {
         await expect(api.ensureColumnId("High")).resolves.toBe("colHigh00001");
         expect(put).toHaveBeenCalledWith(`notes/${board.noteId}/board/column-id`,
             { groupBy: "priority", value: "High", id: expect.any(String) });
+    });
+
+    /**
+     * The server leaves a configuration it cannot read as it stands, so that it can be repaired by
+     * hand, and says it stored nothing. The board writes the id out with the rest of what it draws.
+     */
+    it("stores the id itself when the server reports it stored nothing", async () => {
+        vi.spyOn(server, "put")
+            .mockResolvedValue({ id: "colOther0001", stored: false } as never);
+        const { api, saved } = createApi(
+            { columns: [ { value: "To Do", icon: "bx bx-list-ul" } ] }, [ "To Do" ]);
+
+        await expect(api.ensureColumnId("To Do")).resolves.toBe("colOther0001");
+        expect(saved.at(-1)?.columns)
+            .toEqual([ { value: "To Do", icon: "bx bx-list-ul", id: "colOther0001" } ]);
     });
 
     /** The link still works for as long as nothing else claims the column. */

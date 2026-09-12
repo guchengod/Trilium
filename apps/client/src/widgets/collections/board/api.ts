@@ -817,7 +817,8 @@ export default class BoardApi {
      * Two clients copying a reference to the same id-less column would otherwise each generate an
      * id and the second write would replace the first, breaking the link already copied from it.
      * The server answers with the id the column actually holds, which is this one only when it
-     * arrived first.
+     * arrived first, and says whether it stored it: a configuration the server cannot read is left
+     * for the board to write out again from here.
      */
     async ensureColumnId(column: string) {
         const stored = readColumnId(this.viewConfig, this.groupBy, column);
@@ -827,9 +828,13 @@ export default class BoardApi {
 
         const id = newColumnId();
         try {
-            const settled = await server.put<{ id: string }>(
+            const settled = await server.put<{ id: string, stored: boolean }>(
                 `notes/${this.parentNote.noteId}/board/column-id`,
                 { groupBy: this.groupBy, value: column, id });
+            if (settled && !settled.stored) {
+                this.updateColumn(column, { id: settled.id });
+            }
+
             return settled?.id ?? id;
         } catch (e) {
             // The link still works for as long as nothing else claims the column, and the board
