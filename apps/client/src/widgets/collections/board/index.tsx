@@ -111,8 +111,8 @@ export interface BoardViewData {
 export interface BoardColumnData {
     value: string;
     /**
-     * What a reference to the column names it by, which survives a rename as `value` does not.
-     * Assigned when the column is created, or the first time a reference asks for one.
+     * Identifies the column in a reference link. Renaming a column rewrites `value`, so a link
+     * cannot use it. Assigned when the column is created, or by `BoardApi#ensureColumnId`.
      */
     id?: string;
     /** The icon class shown before the title, absent until one is picked. */
@@ -557,13 +557,14 @@ export default function BoardView({
     // Every member is one of useState's own setters, so this value is built once and never changes
     // identity -- a drag cannot reach anything that reads only this.
     const collapseAllColumns = useCallback(() => {
-        // The open column is closed with the rest: it holds the peek that would otherwise keep it
-        // open against what is being written for it.
+        // Clears the open column first. `activeColumn` draws a collapsed column open, which
+        // would survive the write below.
         selectColumn(undefined);
         api.setAllColumnsCollapsed(true);
     }, [ api, selectColumn ]);
     const expandAllColumns = useCallback(() => {
-        // Opened for good where the column is not kept collapsed, and peeked where it is.
+        // `isPeekingAll` draws the columns that keep `keepCollapsed`; the rest are opened by
+        // the write below.
         setIsPeekingAll(true);
         api.setAllColumnsCollapsed(false);
     }, [ api ]);
@@ -660,9 +661,9 @@ export default function BoardView({
     }), [ api, shownColumns, byColumn, storedColumns, isInRelationMode ]);
     useSetContextData(noteContext, "boardColumns", outline);
 
-    // A `?column=` or `?card=` link opened the board on one of them, which is revealed once it is
-    // drawn. Given `shownColumns` rather than every column, so a column left out because it is
-    // archived is reported as such instead of being waited for.
+    // Reveals the column or card a `?column=` or `?card=` link names. Takes `shownColumns` rather
+    // than every column, so that a column hidden because it is archived is reported instead of
+    // being waited for.
     useBoardReference({
         noteId: parentNote.noteId,
         noteContext,

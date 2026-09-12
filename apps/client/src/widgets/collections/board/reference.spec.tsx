@@ -15,7 +15,8 @@ import { buildNote } from "../../../test/easy-froca";
 import { ParentComponent } from "../../react/react_utils";
 import BoardView, { type BoardViewData } from ".";
 import {
-    cardReference, columnReference, COLUMN_ID_LENGTH, findColumnById, newColumnId, readColumnId
+    cardReference, columnReference, COLUMN_ID_LENGTH, findColumnById, newColumnId, readColumnId,
+    waitFor
 } from "./reference";
 
 vi.mock("../../../menus/link_context_menu", () => ({
@@ -87,6 +88,52 @@ describe("finding a column by its id", () => {
         expect(readColumnId(config, "priority", "High")).toBe(HIGH_ID);
         expect(readColumnId(config, "status", "High")).toBeUndefined();
         expect(readColumnId(undefined, "status", "To Do")).toBeUndefined();
+    });
+});
+
+describe("waiting for what a reference names", () => {
+    it("hands over the element as soon as one is found", async () => {
+        const element = document.createElement("div");
+        const found = vi.fn();
+        let looks = 0;
+
+        waitFor(() => (++looks < 3 ? null : element), found, () => false);
+        await frames(5);
+
+        expect(found).toHaveBeenCalledWith(element);
+        expect(looks).toBe(3);
+    });
+
+    /**
+     * `BoardView` is reused when the pane moves to another board, and two boards often name a
+     * column the same, so a poll left running would reveal the wrong board's column.
+     */
+    it("stops looking once the board it was started for is gone", async () => {
+        const element = document.createElement("div");
+        const found = vi.fn();
+        let looks = 0;
+        let isGone = false;
+
+        waitFor(() => (++looks < 4 ? null : element), found, () => isGone);
+        await frames(2);
+        isGone = true;
+        const lookedBefore = looks;
+        await frames(5);
+
+        expect(found).not.toHaveBeenCalled();
+        expect(looks).toBe(lookedBefore);
+    });
+
+    it("gives up rather than looking for ever", async () => {
+        const found = vi.fn();
+        let looks = 0;
+
+        waitFor(() => { looks++; return null; }, found, () => false, 3);
+        await frames(8);
+
+        expect(found).not.toHaveBeenCalled();
+        // The first look plus one for each retry.
+        expect(looks).toBe(4);
     });
 });
 
@@ -360,6 +407,15 @@ async function settle() {
     for (let round = 0; round < 6; round++) {
         await act(async () => {
             await new Promise((resolve) => setTimeout(resolve));
+            await new Promise((resolve) => requestAnimationFrame(resolve));
+        });
+    }
+}
+
+/** Lets `requestAnimationFrame` callbacks run the given number of times. */
+async function frames(count: number) {
+    for (let round = 0; round < count; round++) {
+        await act(async () => {
             await new Promise((resolve) => requestAnimationFrame(resolve));
         });
     }

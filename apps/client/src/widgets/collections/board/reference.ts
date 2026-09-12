@@ -1,13 +1,12 @@
 /**
- * References to one column or one card of a board, as a link the reader can copy and follow.
+ * Links to one column or one card of a board.
  *
- * A reference is a note path with one parameter on it, `?column=` or `?card=`, which `link.ts`
- * carries in the pane's view scope the same way `?bookmark=` is carried. The board reads it once as
- * it draws and reveals what it names; see {@link useBoardReference}.
+ * A reference is a note path plus a `?column=` or `?card=` parameter. `link.ts` carries both in the
+ * pane's view scope, as it carries `?bookmark=`, and {@link useBoardReference} reads the parameter
+ * once and reveals what it names.
  *
- * A card is named by its note id, which it already has. A column is named by an id of its own,
- * stored in `board.json` beside the rest of what the column is drawn with, because the value its
- * cards carry is rewritten whenever the column is renamed.
+ * A card uses its note id. A column uses an id stored in `board.json`, because renaming a column
+ * rewrites the value its cards carry.
  */
 
 import { boardColumnsKey, boardGroupByFromColumnsKey } from "@triliumnext/commons";
@@ -23,18 +22,18 @@ import type { BoardColumnData, BoardViewData } from ".";
 import type BoardApi from "./api";
 import { askForCard } from "./windowing";
 
-/** How long a column id is, matching the length of a note id so the two read alike. */
+/** Length of a column id, matching a note id so that the two read alike. */
 export const COLUMN_ID_LENGTH = 12;
 
 /** How many frames the reveal waits for the board to draw what a reference names. */
 const REVEAL_TRIES = 30;
 
-/** A fresh column id. `randomString` rather than `crypto.randomUUID`, which needs a secure context. */
+/** A new column id. Uses `randomString`; `crypto.randomUUID` needs a secure context. */
 export function newColumnId() {
     return randomString(COLUMN_ID_LENGTH);
 }
 
-/** Where a column reference points: the grouping that owns the column, and the column itself. */
+/** What a column reference resolves to: the grouping that owns the column, and the column. */
 export interface ColumnReferenceTarget {
     /** The grouping the column belongs to, as `#board:groupBy` writes it. */
     groupBy: string;
@@ -43,11 +42,11 @@ export interface ColumnReferenceTarget {
 }
 
 /**
- * Finds the column an id names, in whichever grouping stores it.
+ * Finds the column an id names, searching every grouping's column list.
  *
- * Every grouping keeps a column list of its own, so an id can belong to a grouping other than the
- * one the board is showing. The board switches to the grouping named here rather than reporting the
- * column missing.
+ * Each grouping stores its own columns, so an id can belong to a grouping other than the one the
+ * board shows. The board switches to the grouping returned here instead of reporting the column
+ * missing.
  */
 export function findColumnById(
     config: BoardViewData | undefined, id: string
@@ -90,9 +89,10 @@ export function cardReference(notePath: string, noteId: string) {
 }
 
 /**
- * What a reference the board has taken off its view scope points at, and which board it was
- * taken for: `BoardView` is drawn unkeyed, so moving to another board reuses the instance and a
- * reference still waiting for its column must not settle on the board that followed.
+ * A reference read off the view scope, and the board it was read for.
+ *
+ * `NoteList` renders `BoardView` unkeyed, so moving to another board reuses the instance. A
+ * reference still waiting for its column must not be applied to the board that follows.
  */
 type BoardReferenceTarget = { board: string } & (
     | { kind: "column"; id: string }
@@ -124,11 +124,12 @@ export interface BoardReferenceOptions {
 /**
  * Reveals the column or card a reference names, once the board has drawn it.
  *
- * The reference is taken off the view scope and cleared as soon as it is read, so that it fires
- * once: a pane stores its view scope in the tab's state, and an unconsumed parameter would jump the
- * board again every time the tab is restored. What it names is then waited for rather than looked
- * for at once, because the columns are resolved a moment after the board mounts, a grouping switch
- * takes another round, and a long column draws only the slice of cards around what is in view.
+ * Clears the parameter from the view scope as soon as it is read. A pane stores its view scope in
+ * the tab's state, so a parameter left in place would jump the board again on every tab restore.
+ *
+ * The target is then polled for rather than looked up once: the board resolves its columns a tick
+ * after it mounts, a grouping switch takes another round, and a long column draws only a slice of
+ * its cards.
  */
 export function useBoardReference({
     noteId, noteContext, api, viewConfig, groupBy, setGroupBy, columns, includeArchived,
@@ -137,10 +138,16 @@ export function useBoardReference({
     const target = useRef<BoardReferenceTarget | null>(null);
     /** The grouping a column reference has already asked for, so the switch is requested once. */
     const switchedTo = useRef<string | null>(null);
+    /** The board being drawn now, which a reveal already running checks it still belongs to. */
+    const drawn = useRef(noteId);
+    const isUnmounted = useRef(false);
 
-    // No dependency list: the reference is settled against whatever the board has drawn so far, and
-    // every render is a chance that what it names is now there.
+    useEffect(() => () => { isUnmounted.current = true; }, []);
+
+    // No dependency list: every render is another chance that the target is now drawn.
     useEffect(() => {
+        drawn.current = noteId;
+
         const viewScope = noteContext?.viewScope;
         if (viewScope?.column || viewScope?.card) {
             target.current = viewScope.column
@@ -177,9 +184,8 @@ export function useBoardReference({
             return true;
         }
 
-        // The column belongs to another grouping, so the board is switched to it and the reference
-        // settled on the round that follows. Asked for once: the label takes a moment to come back
-        // through froca, and every render in between would ask again.
+        // Switches the board to the grouping that owns the column, and settles on a later render.
+        // Requested once, because `#board:groupBy` takes a round trip through froca to come back.
         if (found.groupBy !== groupBy) {
             if (switchedTo.current !== found.groupBy) {
                 switchedTo.current = found.groupBy;
@@ -206,9 +212,9 @@ export function useBoardReference({
             return true;
         }
 
-        // A collapsed column keeps its cards in the page without drawing them, so the card is
-        // focusable before it can be seen. The column is peeked open rather than stored as open:
-        // the reader is being shown one card, not rearranging the board.
+        // A collapsed column renders its cards without showing them, so the card can take focus
+        // while invisible. `selectColumn` opens the column without writing `collapsed`, so the
+        // board's stored layout is unchanged.
         if (api.isColumnCollapsed(column)) {
             selectColumn(column);
         }
@@ -236,48 +242,66 @@ export function useBoardReference({
         waitFor(() => {
             const column = containerRef.current?.querySelector<HTMLElement>(
                 `.board-column[data-column="${quoteForSelector(value)}"]`);
-            // Waited for open rather than focused where it stands: focus arriving on a column that
-            // is not yet the active one closes the peek just asked for (see Column#handleFocusIn).
+            // Waits for the column to open. `Column#handleFocusIn` clears `activeColumn` when
+            // focus arrives on a column that is not yet active, undoing the peek above.
             if (!column || column.classList.contains("collapsed")) {
                 return null;
             }
 
             return column.querySelector<HTMLElement>("h3");
-        }, reveal);
+        }, reveal, abandonedBy(noteId));
     }
 
-    function revealCard(noteId: string, column: string, index: number) {
-        waitFor(
-            () => {
-                const container = containerRef.current;
-                const card = findCardElement(container, noteId);
-                if (!card && container) {
-                    // The card sits outside the slice a long column draws, so the column is asked
-                    // to draw it before there is anything to reveal.
-                    askForCard(container, column, index);
-                }
+    function revealCard(cardNoteId: string, column: string, index: number) {
+        waitFor(() => {
+            const container = containerRef.current;
+            const card = findCardElement(container, cardNoteId);
+            if (!card && container) {
+                // A long column draws only a slice of its cards, so `askForCard` makes it draw
+                // this one.
+                askForCard(container, column, index);
+            }
 
-                return card;
-            },
-            reveal);
+            return card;
+        }, reveal, abandonedBy(noteId));
+    }
+
+    /**
+     * Whether a reveal started for `board` must stop.
+     *
+     * A reveal polls over several frames, and `BoardView` is reused when the pane moves to another
+     * board. Two boards often use the same column names, so a reveal left running can focus the
+     * wrong board's column.
+     */
+    function abandonedBy(board: string) {
+        return () => isUnmounted.current || drawn.current !== board;
     }
 }
 
-/** Puts what a reference names in view and on the focus, which is how it is picked out. */
+/** Scrolls the target into view and focuses it, which is how the reference points it out. */
 function reveal(element: HTMLElement) {
     element.focus({ preventScroll: true });
     element.scrollIntoView({ block: "center", inline: "center", behavior: "smooth" });
 }
 
 /**
- * Runs `find` each frame until it answers with an element, for at most {@link REVEAL_TRIES} frames.
+ * Calls `find` each frame until it returns an element, for at most {@link REVEAL_TRIES} frames, then
+ * passes that element to `then`.
  *
- * The board draws the columns a moment after it mounts, and a windowed column draws a card a frame
- * after it is asked to, so what a reference names is rarely in the page on the first look.
+ * The board draws its columns a tick after it mounts, and a windowed column draws a card a frame
+ * after `askForCard`, so the first call rarely finds anything. `isAbandoned` stops the polling
+ * early.
  */
-function waitFor(
-    find: () => HTMLElement | null, then: (element: HTMLElement) => void, tries = REVEAL_TRIES
+export function waitFor(
+    find: () => HTMLElement | null,
+    then: (element: HTMLElement) => void,
+    isAbandoned: () => boolean,
+    tries = REVEAL_TRIES
 ) {
+    if (isAbandoned()) {
+        return;
+    }
+
     const found = find();
     if (found) {
         then(found);
@@ -285,18 +309,18 @@ function waitFor(
     }
 
     if (tries > 0) {
-        requestAnimationFrame(() => waitFor(find, then, tries - 1));
+        requestAnimationFrame(() => waitFor(find, then, isAbandoned, tries - 1));
     }
 }
 
-/** Found by the note it stands for rather than by where it sits, as the keyboard walk finds it. */
+/** Finds a card by its note id, the same way the keyboard navigation does. */
 function findCardElement(container: HTMLElement | null, noteId: string) {
     return container?.querySelector<HTMLElement>(`.board-note[data-note-id="${noteId}"]`) ?? null;
 }
 
 /**
- * A column value as a quoted attribute selector can carry it. Column values are user text, and a
- * quote or a backslash in one would end the selector's string rather than fail to match.
+ * Escapes a column value for a quoted attribute selector. Column values are user text, and a quote
+ * or a backslash would end the selector's string rather than fail to match.
  */
 function quoteForSelector(value: string) {
     return value.replace(/[\\"]/g, "\\$&");

@@ -574,8 +574,8 @@ describe("Collapsed board columns", () => {
     });
 
     /**
-     * The same two actions on the overlay group in the foot corner, where the shortcut-hints button
-     * stands last so that what the board does keeps the leading end.
+     * The overlay group holds the same two actions as the board menu, followed by the
+     * shortcut-hints button.
      */
     it("collapses and expands every column from the overlay group", async () => {
         const { mountPoint } = await setup({ keepCollapsed: true });
@@ -4257,8 +4257,8 @@ describe("Board properties from the note menu", () => {
     });
 
     /**
-     * The same dialog from the collection bar, where it sits last in the settings menu so that
-     * the view options above it stay together.
+     * The collection settings menu opens the same dialog. Its entry comes after the view options,
+     * separated from them by a divider.
      */
     it("opens the dialog from the collection settings menu, below a divider", async () => {
         await renderBoardInContext("ntx-1");
