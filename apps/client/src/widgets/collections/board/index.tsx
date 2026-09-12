@@ -64,6 +64,7 @@ import { currentCardTemplate, DEFAULT_CARD_TEMPLATES } from "./card_templates";
 import ColumnLimitDialog from "./column_limit";
 import BoardGroupBy, { groupingOptions } from "./group_by";
 import BoardProperties from "./properties";
+import { useBoardReference } from "./reference";
 import { openBoardContextMenu, openCreateColumnMenu } from "./context_menu";
 import { useBoardSort } from "./sort";
 import {
@@ -109,6 +110,11 @@ export interface BoardViewData {
 
 export interface BoardColumnData {
     value: string;
+    /**
+     * What a reference to the column names it by, which survives a rename as `value` does not.
+     * Assigned when the column is created, or the first time a reference asks for one.
+     */
+    id?: string;
     /** The icon class shown before the title, absent until one is picked. */
     icon?: string;
     /** The CSS colour the column is tinted with, absent until one is picked. */
@@ -653,6 +659,22 @@ export default function BoardView({
         }
     }), [ api, shownColumns, byColumn, storedColumns, isInRelationMode ]);
     useSetContextData(noteContext, "boardColumns", outline);
+
+    // A `?column=` or `?card=` link opened the board on one of them, which is revealed once it is
+    // drawn. Given `shownColumns` rather than every column, so a column left out because it is
+    // archived is reported as such instead of being waited for.
+    useBoardReference({
+        noteId: parentNote.noteId,
+        noteContext,
+        api,
+        viewConfig,
+        groupBy,
+        setGroupBy: setRequestedGroupBy,
+        columns: columns && shownColumns,
+        includeArchived,
+        selectColumn,
+        containerRef
+    });
 
     // Neither the creation dates the tie-break needs nor the targets of a sorted relation come
     // with the board. Both are fetched here, and `sortRevision` redraws it once they land.

@@ -31,6 +31,7 @@ import {
 } from "./columns";
 import { readColumns, writeColumns } from "./column_storage";
 import { ColumnItem, ColumnMap } from "./data";
+import { cardReference, columnReference, newColumnId, readColumnId } from "./reference";
 import { SORT_DESCENDING_LABEL, SORT_LABEL } from "./sort";
 
 /** Which end of a column a new card is made at. */
@@ -408,7 +409,10 @@ export default class BoardApi {
 
         // The icon goes in with the column rather than after it: a write of its own would be a
         // second refresh of the board for a column that has only just been drawn.
-        const added: BoardColumnData = icon ? { value: columnName, icon } : { value: columnName };
+        const added: BoardColumnData = { value: columnName, id: newColumnId() };
+        if (icon) {
+            added.icon = icon;
+        }
 
         if (!atStart) {
             this.storeColumns([ ...columns, added ]);
@@ -464,9 +468,11 @@ export default class BoardApi {
         order.splice(
             neighbour < 0 ? order.length : neighbour + (direction === "after" ? 1 : 0), 0, name);
 
-        // Entries carry more than their name, so each is moved rather than rebuilt.
+        // Entries carry more than their name, so each is moved rather than rebuilt. The new one is
+        // the only one written from scratch, and is the only one given an id.
         const byValue = new Map(stored.map(col => [ col.value, col ]));
-        this.storeColumns(order.map(value => byValue.get(value) ?? { value }));
+        this.storeColumns(order.map(value =>
+            byValue.get(value) ?? (value === name ? { value, id: newColumnId() } : { value })));
 
         return name;
     }
@@ -798,6 +804,44 @@ export default class BoardApi {
     /** Whether the inbox also collects notes deeper than the board's direct children. */
     async setInboxNested(nested: boolean) {
         await this.updateColumn(INBOX_COLUMN, { nested });
+    }
+
+    /**
+     * The id a reference names a column by, storing one where the column has none yet.
+     *
+     * A column with no stored entry at all is given one here: it is drawn from the definition or
+     * from a value its cards carry, and until something is stored for it there is nothing to hold
+     * an id.
+     */
+    ensureColumnId(column: string) {
+        const stored = readColumnId(this.viewConfig, this.groupBy, column);
+        if (stored) {
+            return stored;
+        }
+
+        const id = newColumnId();
+        this.updateColumn(column, { id });
+        return id;
+    }
+
+    /**
+     * The link that opens this board on one of its columns, which the menu copies.
+     *
+     * Storing an id for a column that has none is what makes the link outlive a rename, so copying
+     * a reference writes to `board.json` where nothing has been stored for the column yet.
+     */
+    getColumnReference(column: string) {
+        return columnReference(this.boardNotePath, this.ensureColumnId(column));
+    }
+
+    /** The link that opens this board on one of its cards, which is named by its own note id. */
+    getCardReference(noteId: string) {
+        return cardReference(this.boardNotePath, noteId);
+    }
+
+    /** How a link names the board: the path the pane reached it by, or the board alone. */
+    private get boardNotePath() {
+        return this.noteContext?.notePath ?? this.parentNote.noteId;
     }
 
     /** Whether a column is archived, which the board shows only while archived notes are shown. */

@@ -1,6 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import appContext from "../../../components/app_context";
+import type NoteContext from "../../../components/note_context";
 import FAttribute from "../../../entities/fattribute";
 import type FBranch from "../../../entities/fbranch";
 import branches from "../../../services/branches";
@@ -20,6 +21,7 @@ import BoardApi, { getPendingWrites, PendingColumnWrites } from "./api";
 import { ColumnItem, ColumnMap } from "./data";
 import { BOARD_TEMPLATE_ID, DEFAULT_COLUMN_ICON, getStatusDefinition, INBOX_COLUMN } from "./columns";
 import { DEFAULT_CARD_TEMPLATES } from "./card_templates";
+import { COLUMN_ID_LENGTH } from "./reference";
 
 vi.mock("../../../services/bulk_action", () => ({
     executeBulkActions: vi.fn(async () => {})
@@ -202,7 +204,7 @@ describe("BoardApi column mutations", () => {
 
         expect(saved.at(-1)?.columns)
             .toEqual([
-                { value: "board_view.new-column" },
+                { value: "board_view.new-column", id: expect.any(String) },
                 { value: "To Do", icon: "bx bx-list-ul", color: "#e64d4d" }
             ]);
     });
@@ -1686,11 +1688,14 @@ describe("collapsing a column", () => {
         const { api, saved } = createApi({ columns: [ { value: "To Do" } ] }, [ "To Do" ]);
 
         await api.addNewColumn("Blocked", false, "bx bx-star");
-        expect(saved.at(-1)?.columns)
-            .toEqual([ { value: "To Do" }, { value: "Blocked", icon: "bx bx-star" } ]);
+        expect(saved.at(-1)?.columns).toEqual([
+            { value: "To Do" },
+            { value: "Blocked", icon: "bx bx-star", id: expect.any(String) }
+        ]);
 
         await api.addNewColumn("Doing", true, "bx bx-run");
-        expect(saved.at(-1)?.columns?.[0]).toEqual({ value: "Doing", icon: "bx bx-run" });
+        expect(saved.at(-1)?.columns?.[0])
+            .toEqual({ value: "Doing", icon: "bx bx-run", id: expect.any(String) });
     });
 
     /**
@@ -2540,5 +2545,70 @@ describe("the columns as the right pane lists them", () => {
             // A note the cache has not got: the value is all there is to go on.
             { value: "missing", title: "missing", icon: DEFAULT_COLUMN_ICON, count: 0 }
         ]);
+    });
+});
+
+describe("references to a board's columns and cards", () => {
+    it("keeps the id a column already has, so the link stays the same", () => {
+        const { api, saved } = createApi(
+            { columns: [ { value: "To Do", id: "colTodo00001" } ] }, [ "To Do" ]);
+
+        expect(api.ensureColumnId("To Do")).toBe("colTodo00001");
+        expect(api.ensureColumnId("To Do")).toBe("colTodo00001");
+        // Nothing to store, so the board is left alone.
+        expect(saved).toEqual([]);
+    });
+
+    /**
+     * A column drawn from the definition or from a value its cards carry has no stored entry at
+     * all, so the first reference taken of it is what writes one.
+     */
+    it("stores an id for a column that has none, keeping what it already holds", () => {
+        const { api, saved } = createApi(
+            { columns: [ { value: "To Do", icon: "bx bx-list-ul" } ] }, [ "To Do", "Done" ]);
+
+        const todo = api.ensureColumnId("To Do");
+        expect(todo).toHaveLength(COLUMN_ID_LENGTH);
+        expect(saved.at(-1)?.columns)
+            .toEqual([ { value: "To Do", icon: "bx bx-list-ul", id: todo } ]);
+
+        const done = api.ensureColumnId("Done");
+        expect(done).not.toBe(todo);
+        expect(saved.at(-1)?.columns).toEqual([
+            { value: "To Do", icon: "bx bx-list-ul", id: todo },
+            { value: "Done", id: done }
+        ]);
+    });
+
+    it("writes one grouping's ids under that grouping alone", () => {
+        const board = buildNote({ title: "Board" });
+        const { api, saved } = createApi(
+            { columns: [ { value: "To Do", id: "colTodo00001" } ] }, [ "High" ], board,
+            "priority");
+
+        const high = api.ensureColumnId("High");
+        expect(saved.at(-1)?.priorityViewColumns).toEqual([ { value: "High", id: high } ]);
+        expect(saved.at(-1)?.columns).toEqual([ { value: "To Do", id: "colTodo00001" } ]);
+    });
+
+    it("builds the links the menu copies, from the path the pane reached the board by", () => {
+        const board = buildNote({ title: "Board" });
+        const { api } = createApi(
+            { columns: [ { value: "To Do", id: "colTodo00001" } ] }, [ "To Do" ], board);
+        api.noteContext = { notePath: `root/parent1234/${board.noteId}` } as NoteContext;
+
+        expect(api.getColumnReference("To Do"))
+            .toBe(`#root/parent1234/${board.noteId}?column=colTodo00001`);
+        expect(api.getCardReference("card00000001"))
+            .toBe(`#root/parent1234/${board.noteId}?card=card00000001`);
+    });
+
+    /** A board drawn outside a pane, such as in a note preview, still has itself to name. */
+    it("falls back to the board's own id where the pane names no path", () => {
+        const board = buildNote({ title: "Board" });
+        const { api } = createApi({}, [], board);
+
+        expect(api.getCardReference("card00000001"))
+            .toBe(`#${board.noteId}?card=card00000001`);
     });
 });
