@@ -574,6 +574,33 @@ describe("Collapsed board columns", () => {
     });
 
     /**
+     * The same two actions on the overlay group in the foot corner, where the shortcut-hints button
+     * stands last so that what the board does keeps the leading end.
+     */
+    it("collapses and expands every column from the overlay group", async () => {
+        const { mountPoint } = await setup({ keepCollapsed: true });
+        const group = mountPoint.querySelector<HTMLElement>(".board-overlay-controls");
+        const buttons = [ ...(group?.querySelectorAll<HTMLButtonElement>("button") ?? []) ];
+        expect(buttons.map(button => button.getAttribute("aria-label"))).toEqual([
+            "board_view.collapse-all-columns", "board_view.expand-all-columns",
+            "shortcut_hints.show_button"
+        ]);
+
+        await act(async () => {
+            buttons[0]?.click();
+            await flush();
+        });
+        expect(isCollapsed(mountPoint, 0)).toBe(true);
+        expect(isCollapsed(mountPoint, 1)).toBe(true);
+
+        await act(async () => {
+            buttons[1]?.click();
+            await flush();
+        });
+        expect(isCollapsed(mountPoint, 0)).toBe(false);
+        expect(isCollapsed(mountPoint, 1)).toBe(false);
+    });
+    /**
      * A press on a card is focus arriving before it is a click, and while the whole board is peeked
      * every column reads as inactive. The column pressed in keeps its peek; the rest give theirs up.
      */

@@ -37,7 +37,8 @@ import {
 } from "../../react/hooks";
 import Icon from "../../react/Icon";
 import NoteAutocomplete from "../../react/NoteAutocomplete";
-import ShortcutHintButton from "../../shortcut_hints/shortcut_hint_button";
+import OverlayControlGroup, { OverlayControlButton } from "../../react/OverlayControlGroup";
+import { ShortcutHintOverlayButton } from "../../shortcut_hints/shortcut_hint_button";
 import { onWheelHorizontalScroll } from "../../widget_utils";
 import ActionButton from "../../react/ActionButton";
 import { IconPickerButton } from "../../react/IconPicker";
@@ -549,6 +550,17 @@ export default function BoardView({
     api.noteContext = noteContext;
     // Every member is one of useState's own setters, so this value is built once and never changes
     // identity -- a drag cannot reach anything that reads only this.
+    const collapseAllColumns = useCallback(() => {
+        // The open column is closed with the rest: it holds the peek that would otherwise keep it
+        // open against what is being written for it.
+        selectColumn(undefined);
+        api.setAllColumnsCollapsed(true);
+    }, [ api, selectColumn ]);
+    const expandAllColumns = useCallback(() => {
+        // Opened for good where the column is not kept collapsed, and peeked where it is.
+        setIsPeekingAll(true);
+        api.setAllColumnsCollapsed(false);
+    }, [ api ]);
     const openBoardMenu = useCallback((event: ContextMenuEvent) => {
         // Only the ground the columns stand on. A column and a card answer for their own presses,
         // and what they leave alone, such as the button that makes a card, is left alone here too.
@@ -561,19 +573,10 @@ export default function BoardView({
             onAddColumn: () => setIsCreatingColumn(true),
             onShowArchived: (shown) => api.setArchivedShown(shown),
             onOpenProperties: () => setIsEditingProperties(true),
-            onCollapseAll: () => {
-                // The open column is closed with the rest: it holds the peek that would otherwise
-                // keep it open against what is being written for it.
-                selectColumn(undefined);
-                api.setAllColumnsCollapsed(true);
-            },
-            onExpandAll: () => {
-                // Opened for good where the column is not kept collapsed, and peeked where it is.
-                setIsPeekingAll(true);
-                api.setAllColumnsCollapsed(false);
-            }
+            onCollapseAll: collapseAllColumns,
+            onExpandAll: expandAllColumns
         });
-    }, [ api, selectColumn, inboxEnabled, includeArchived ]);
+    }, [ api, collapseAllColumns, expandAllColumns, inboxEnabled, includeArchived ]);
 
     // Read from the api rather than from the prop, since a pick moves the api's own copy ahead of
     // the board's; keyed on the prop so that a change from anywhere else is followed too.
@@ -1363,10 +1366,22 @@ export default function BoardView({
                             document.body
                         )}
                         {!isMobile() && (
-                            <ShortcutHintButton
-                                className="board-shortcut-hint-button"
+                            <OverlayControlGroup
+                                className="board-overlay-controls"
                                 placement="bottom-end"
-                            />
+                            >
+                                <OverlayControlButton
+                                    title={t("board_view.collapse-all-columns")}
+                                    icon="bx-collapse-alt"
+                                    onClick={collapseAllColumns}
+                                />
+                                <OverlayControlButton
+                                    title={t("board_view.expand-all-columns")}
+                                    icon="bx-expand-alt"
+                                    onClick={expandAllColumns}
+                                />
+                                <ShortcutHintOverlayButton />
+                            </OverlayControlGroup>
                         )}
                     </div>}
                 </SelectionContext.Provider>
