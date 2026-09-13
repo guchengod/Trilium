@@ -232,7 +232,9 @@ describe("CustomNoteList visibility latch", () => {
 
     it("keeps observing after a non-intersecting callback and renders once visible", async () => {
         const note = buildNote({ title: "Parent", type: "text" });
-        note.getChildNoteIdsWithArchiveFiltering = vi.fn(async () => [ "child-a" ]);
+        // A note froca holds, since the list renders it and asks froca for it by id.
+        const child = buildNote({ title: "Child", type: "text" });
+        note.getChildNoteIdsWithArchiveFiltering = vi.fn(async () => [ child.noteId ]);
         note.getAttachmentsByRole = vi.fn(async () => []);
 
         const parent = new Component();
@@ -276,7 +278,9 @@ describe("CustomNoteList visibility latch", () => {
 
     it("waits for the note content before observing, and drops the latch when a new load starts", async () => {
         const note = buildNote({ title: "Parent", type: "text" });
-        note.getChildNoteIdsWithArchiveFiltering = vi.fn(async () => [ "child-a" ]);
+        // A note froca holds, since the list renders it and asks froca for it by id.
+        const child = buildNote({ title: "Child", type: "text" });
+        note.getChildNoteIdsWithArchiveFiltering = vi.fn(async () => [ child.noteId ]);
         note.getAttachmentsByRole = vi.fn(async () => []);
 
         const parent = new Component();
