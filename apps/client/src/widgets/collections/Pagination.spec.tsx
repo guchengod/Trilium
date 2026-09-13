@@ -166,4 +166,23 @@ describe("usePagination", () => {
             getNotesSpy.mockRestore();
         }
     });
+
+    it("reports a failed note load instead of leaving the rejection unhandled", async () => {
+        const getNotesSpy = vi.spyOn(froca, "getNotes")
+            .mockRejectedValue(new Error("tree/load failed"));
+        const consoleSpy = vi.spyOn(console, "error").mockImplementation(() => {});
+        try {
+            const note = buildNote({ title: "Search", type: "search" });
+            await mount(note, 10);
+            await settle();
+
+            // An unhandled rejection here fails the whole Vitest run, not just this test.
+            expect(consoleSpy).toHaveBeenCalled();
+            expect(observed?.pageNotes).toBeUndefined();
+            expect(observed?.page).toBe(1);
+        } finally {
+            consoleSpy.mockRestore();
+            getNotesSpy.mockRestore();
+        }
+    });
 });

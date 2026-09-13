@@ -173,11 +173,15 @@ export function usePagination(
         // Overlapping loads (rapid page flips, a shrinking result set) can resolve out of order;
         // the cleanup flag makes sure a superseded load can no longer overwrite the current page.
         let cancelled = false;
-        froca.getNotes(pageNoteIds).then((notes) => {
-            if (!cancelled) {
-                setPageNotes(notes);
-            }
-        });
+        froca.getNotes(pageNoteIds)
+            .then((notes) => {
+                if (!cancelled) {
+                    setPageNotes(notes);
+                }
+            })
+            // froca.getNotes() rejects when its `tree/load` request fails. Report it and leave
+            // `pageNotes` as it stands, so the rejection reaches a handler.
+            .catch((e) => console.error(`Loading the notes of page ${effectivePage} failed`, e));
         return () => {
             cancelled = true;
         };
