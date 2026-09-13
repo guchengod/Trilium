@@ -179,9 +179,14 @@ export function usePagination(
                     setPageNotes(notes);
                 }
             })
-            // froca.getNotes() rejects when its `tree/load` request fails. Report it and leave
-            // `pageNotes` as it stands, so the rejection reaches a handler.
-            .catch((e) => console.error(`Loading the notes of page ${effectivePage} failed`, e));
+            // froca.getNotes() rejects when its `tree/load` request fails. The page keeps the notes
+            // it already has, and a superseded load stays as quiet about failing as it does about
+            // succeeding.
+            .catch((e) => {
+                if (!cancelled) {
+                    console.error(`Loading the notes of page ${effectivePage} failed`, e);
+                }
+            });
         return () => {
             cancelled = true;
         };
